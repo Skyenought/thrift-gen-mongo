@@ -17,11 +17,13 @@
 package utils
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
 	"go/build"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
@@ -53,10 +55,10 @@ func PathExist(path string) (bool, error) {
 
 func ReadFileContent(filePath string) (content []byte, err error) {
 	file, err := os.Open(filePath)
-	defer file.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer file.Close()
 
 	return io.ReadAll(file)
 }
@@ -64,21 +66,21 @@ func ReadFileContent(filePath string) (content []byte, err error) {
 // CamelString converts the string 's' to a camel string
 func CamelString(s string) string {
 	data := make([]byte, 0, len(s))
-	j := false
-	k := false
+	ju := false
+	ke := false
 	num := len(s) - 1
 	for i := 0; i <= num; i++ {
 		d := s[i]
-		if k == false && d >= 'A' && d <= 'Z' {
-			k = true
+		if !ke && d >= 'A' && d <= 'Z' {
+			ke = true
 		}
-		if d >= 'a' && d <= 'z' && (j || k == false) {
+		if d >= 'a' && d <= 'z' && (ju || !ke) {
 			d = d - 32
-			j = false
-			k = true
+			ju = false
+			ke = true
 		}
-		if k && d == '_' && num > i && s[i+1] >= 'a' && s[i+1] <= 'z' {
-			j = true
+		if ke && d == '_' && num > i && s[i+1] >= 'a' && s[i+1] <= 'z' {
+			ju = true
 			continue
 		}
 		data = append(data, d)
@@ -203,9 +205,7 @@ func QueryVersion(exe string) (version string, err error) {
 	err = cmd.Run()
 	if err == nil {
 		version = strings.Split(buf.String(), " ")[1]
-		if strings.HasSuffix(version, "\n") {
-			version = version[:len(version)-1]
-		}
+		version = strings.TrimSuffix(version, "\n")
 	}
 	return
 }
@@ -307,6 +307,9 @@ func CheckAndUpdateThriftgo() error {
 		return fmt.Errorf("can not find %s", "thriftgo")
 	}
 	curVersion, err := QueryVersion(path)
+	if err != nil {
+		return fmt.Errorf("query thriftgo version failed, err: %v", err)
+	}
 	log.Printf("current thriftgo version is %s", curVersion)
 	if ShouldUpdate(curVersion, ThriftgoMiniVersion) {
 		log.Println(" current thriftgo version is less than v0.2.0, so update thriftgo version")
@@ -356,47 +359,6 @@ func InstallAndCheckThriftgo() error {
 	}
 	if !exist {
 		return fmt.Errorf("install thriftgo failed. Please install it manual, and make sure the version of thriftgo is greater than v0.2.0")
-	}
-
-	return nil
-}
-
-func InstallAndCheckMongoPlugin() error {
-	exe, err := exec.LookPath("go")
-	if err != nil {
-		return fmt.Errorf("can not find tool 'go': %v", err)
-	}
-	var buf strings.Builder
-	cmd := &exec.Cmd{
-		Path: exe,
-		Args: []string{
-			exe, "install", "github.com/hertz-contrib/thrift-gen-mongo@latest",
-		},
-		Stdin:  os.Stdin,
-		Stdout: &buf,
-		Stderr: &buf,
-	}
-
-	done := make(chan error)
-	log.Println("installing thrift-gen-mongo automatically")
-	go func() {
-		done <- cmd.Run()
-	}()
-	select {
-	case err = <-done:
-		if err != nil {
-			return fmt.Errorf("can not install thrift-gen-mongo, err: %v. Please install it manual, and make sure the version of thrift-gen-mongo is greater than v0.2.0", cmd.Stderr)
-		}
-	case <-time.After(time.Second * 30):
-		return fmt.Errorf("install thrift-gen-mongo time out.Please install it manual, and make sure the version of thrift-gen-mongo is greater than v0.2.0")
-	}
-
-	exist, err := CheckCompiler("thrift-gen-mongo")
-	if err != nil {
-		return fmt.Errorf("check %s exist failed, err: %v", "thrift-gen-mongo", err)
-	}
-	if !exist {
-		return fmt.Errorf("install thrift-gen-mongo failed. Please install it manual, and make sure the version of thrift-gen-mongo is greater than v0.2.0")
 	}
 
 	return nil
@@ -524,6 +486,45 @@ func InitGoMod(module string) error {
 		Stderr: os.Stderr,
 	}
 	return cmd.Run()
+}
+
+func FindGenDir(outDir string) (string, error) {
+	hzFilePath := filepath.Join(outDir, ".hz")
+	kitexGenPath := filepath.Join(outDir, "kitex_gen")
+
+	data, err := ReadFileContent(hzFilePath)
+	if err != nil {
+		// not found .hz file
+		if errors.Is(err, fs.ErrNotExist) {
+			exists, pathErr := PathExist(kitexGenPath)
+			if pathErr != nil {
+				return "", pathErr
+			}
+			if exists {
+				return kitexGenPath, nil
+			}
+			return "", fs.ErrNotExist
+		}
+		return "", err
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if keyValue := strings.SplitN(line, ":", 2); len(keyValue) == 2 && strings.TrimSpace(keyValue[0]) == "modelDir" {
+			// modelDir: ""
+			if strings.TrimSpace(keyValue[1]) == "\"\"" {
+				return filepath.Join(outDir, "biz/model"), nil
+			}
+			return filepath.Join(outDir, strings.TrimSpace(keyValue[1])), nil
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	return "", nil
 }
 
 // IsWindows determines whether the current operating system is Windows

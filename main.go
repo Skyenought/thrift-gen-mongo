@@ -20,7 +20,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/hertz-contrib/thrift-gen-mongo/plugins"
+	"github.com/hertz-contrib/thrift-gen-mongo/mongo_plugin"
 )
 
 func main() {
@@ -35,9 +35,9 @@ func main() {
 	}
 
 	if queryVersion {
-		println(plugins.Version)
+		println(mongo_plugin.Version)
 		os.Exit(0)
 	}
 
-	os.Exit(plugins.Run())
+	os.Exit(mongo_plugin.Run())
 }

@@ -145,7 +145,7 @@ func (fp *FindParse) check(method *extract.InterfaceMethod) error {
 	return nil
 }
 
-func (fp *FindParse) parseProject(tokens []string, extractStruct *extract.IdlExtractStruct) (int, error) {
+func (fp *FindParse) parseProject(tokens []string, extractStruct *extract.IDLExtractStruct) (int, error) {
 	tokenIndex, err := getNextTokenIndex(tokens, 0)
 	if err != nil {
 		return 0, err
@@ -233,7 +233,7 @@ func (fp *FindParse) parseFindOptions(tokens []string, method *extract.Interface
 	return nil
 }
 
-func (fp *FindParse) getSortFields(tokens []string, extractStruct *extract.IdlExtractStruct) error {
+func (fp *FindParse) getSortFields(tokens []string, extractStruct *extract.IDLExtractStruct) error {
 	preDescIndex := 0
 	for i := 0; i < len(tokens); i++ {
 		if tokens[i] == desc {

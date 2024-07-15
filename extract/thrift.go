@@ -45,12 +45,13 @@ type ThriftMeta struct {
 	ImportPaths []string
 }
 
-func (info *ThriftMeta) ParseThriftIdl() (rawStructs []*IdlExtractStruct, err error) {
+func (info *ThriftMeta) ParseThriftIDL() (rawStructs []*IDLExtractStruct, err error) {
 	var getGenGoFilePath func(file *parser.Thrift) error
 
 	getGenGoFilePath = func(file *parser.Thrift) error {
-		importPath := filepath.Join(info.Args.PackagePrefix,
-			strings.ReplaceAll(file.Namespaces[0].Name, ".", consts.Slash))
+		// deal namespace separator "."
+		namespace := strings.ReplaceAll(file.Namespaces[0].Name, ".", consts.Slash)
+		importPath := filepath.Join(info.Args.PackagePrefix, namespace)
 		importPath = strings.ReplaceAll(importPath, consts.BackSlash, consts.Slash)
 		info.ImportPaths = append(info.ImportPaths, importPath)
 
@@ -63,7 +64,9 @@ func (info *ThriftMeta) ParseThriftIdl() (rawStructs []*IdlExtractStruct, err er
 				}
 			}
 			if hasInterface {
-				rawStruct := newIdlExtractStruct(utils.CamelString(st.Name))
+				rawStruct := newIDLExtractStruct(utils.CamelString(st.Name))
+				rawStruct.PkgName = namespace
+
 				if err = extractIdlStruct(st, file, rawStruct); err != nil {
 					return err
 				}
@@ -91,6 +94,7 @@ func (info *ThriftMeta) ParseThriftIdl() (rawStructs []*IdlExtractStruct, err er
 				}
 			}
 		}
+		// generate include thrift files
 		for _, include := range file.Includes {
 			if err = getGenGoFilePath(include.Reference); err != nil {
 				return err
@@ -104,7 +108,7 @@ func (info *ThriftMeta) ParseThriftIdl() (rawStructs []*IdlExtractStruct, err er
 	return
 }
 
-func extractIdlStruct(st *parser.StructLike, file *parser.Thrift, rawStruct *IdlExtractStruct) error {
+func extractIdlStruct(st *parser.StructLike, file *parser.Thrift, rawStruct *IDLExtractStruct) error {
 	for _, field := range st.Fields {
 		fag := field.Annotations.Get("go.tag")
 		if len(field.Annotations) > 0 && fag != nil && strings.Contains(fag[0], bson) {
@@ -150,7 +154,7 @@ func extractIdlStruct(st *parser.StructLike, file *parser.Thrift, rawStruct *Idl
 					}
 					rawStruct.StructFields = append(rawStruct.StructFields, sf)
 				} else {
-					rs := &IdlExtractStruct{
+					rs := &IDLExtractStruct{
 						Name:         subStruct.Name,
 						StructFields: make([]*StructField, 0, 10),
 					}
@@ -184,7 +188,7 @@ func extractIdlStruct(st *parser.StructLike, file *parser.Thrift, rawStruct *Idl
 					}
 					rawStruct.StructFields = append(rawStruct.StructFields, sf)
 				} else {
-					rs := &IdlExtractStruct{
+					rs := &IDLExtractStruct{
 						Name:         subStruct.Name,
 						StructFields: make([]*StructField, 0, 10),
 					}

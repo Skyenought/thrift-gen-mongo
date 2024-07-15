@@ -18,20 +18,22 @@ package extract
 
 import (
 	"go/ast"
+	astParser "go/parser"
 	"go/token"
 	"path/filepath"
 	"reflect"
 	"strings"
 
-	astParser "go/parser"
-
 	"github.com/fatih/camelcase"
+	"github.com/hertz-contrib/thrift-gen-mongo/consts"
+
 	"github.com/hertz-contrib/thrift-gen-mongo/code"
 	"github.com/hertz-contrib/thrift-gen-mongo/utils"
 )
 
-type IdlExtractStruct struct {
+type IDLExtractStruct struct {
 	Name          string
+	PkgName       string
 	StructFields  []*StructField
 	InterfaceInfo *InterfaceInfo
 	UpdateInfo
@@ -47,7 +49,7 @@ type InterfaceMethod struct {
 	ParsedTokens     string
 	Params           code.Params
 	Returns          code.Returns
-	BelongedToStruct *IdlExtractStruct
+	BelongedToStruct *IDLExtractStruct
 }
 
 type StructField struct {
@@ -55,7 +57,7 @@ type StructField struct {
 	Type               code.Type
 	Tag                reflect.StructTag
 	IsBelongedToStruct bool
-	BelongedToStruct   *IdlExtractStruct
+	BelongedToStruct   *IDLExtractStruct
 }
 
 type UpdateInfo struct {
@@ -66,8 +68,8 @@ type UpdateInfo struct {
 	PreIfMethods          []*InterfaceMethod
 }
 
-func newIdlExtractStruct(name string) *IdlExtractStruct {
-	return &IdlExtractStruct{
+func newIDLExtractStruct(name string) *IDLExtractStruct {
+	return &IDLExtractStruct{
 		Name:         name,
 		StructFields: make([]*StructField, 0, 10),
 		InterfaceInfo: &InterfaceInfo{
@@ -80,8 +82,8 @@ func newIdlExtractStruct(name string) *IdlExtractStruct {
 	}
 }
 
-func (st *IdlExtractStruct) recordMongoIfInfo(daoDir string) error {
-	fileMongoName, fileIfName := GetFileName(st.Name, daoDir)
+func (st *IDLExtractStruct) recordMongoIfInfo(daoDir string) error {
+	fileMongoName, fileIfName := GetFileName(st.PkgName, st.Name, daoDir)
 
 	isExist, err := utils.PathExist(fileMongoName)
 	if err != nil {
@@ -118,7 +120,7 @@ func (st *IdlExtractStruct) recordMongoIfInfo(daoDir string) error {
 	return nil
 }
 
-func extractIdlInterface(rawInterface string, rawStruct *IdlExtractStruct, tokens []string) error {
+func extractIdlInterface(rawInterface string, rawStruct *IDLExtractStruct, tokens []string) error {
 	fSet := token.NewFileSet()
 	f, err := astParser.ParseFile(fSet, "", rawInterface, astParser.ParseComments)
 	if err != nil {
@@ -145,7 +147,7 @@ func extractIdlInterface(rawInterface string, rawStruct *IdlExtractStruct, token
 	return nil
 }
 
-func extractInterfaceType(ifName string, interfaceType *ast.InterfaceType, tokens []string, rawStruct *IdlExtractStruct) *InterfaceInfo {
+func extractInterfaceType(ifName string, interfaceType *ast.InterfaceType, tokens []string, rawStruct *IDLExtractStruct) *InterfaceInfo {
 	intf := &InterfaceInfo{
 		Name:    ifName,
 		Methods: []*InterfaceMethod{},
@@ -262,15 +264,25 @@ func getType(expr ast.Expr, pkgName string, isPbCall bool) code.Type {
 	return nil
 }
 
-func GetFileName(structName, prefix string) (fileMongoName, fileIfName string) {
-	dir := GetPkgName(structName)
-	fileMongoName = filepath.Join(prefix, dir, dir+"_repo_mongo.go")
-	fileIfName = filepath.Join(prefix, dir, dir+"_repo.go")
+func GetFileName(pkgName, structName, prefix string) (fileMongoName, fileIfName string) {
+	dir := ToSnackName(pkgName)
+	structName = ToSnackName(structName)
+	fileMongoName = filepath.Join(prefix, dir, structName+"_repo_mongo.go")
+	fileIfName = filepath.Join(prefix, dir, structName+"_repo_doc.go")
 	return
 }
 
-func GetPkgName(structName string) string {
-	tokens := camelcase.Split(structName)
+func ToSnackName(s string) string {
+	if strings.Contains(s, consts.Slash) {
+		return strings.ToLower(s)
+	}
+
+	if strings.Contains(s, consts.BackSlash) {
+		parts := strings.Split(s, consts.BackSlash)
+		return strings.ToLower(parts[len(parts)-1])
+	}
+
+	tokens := camelcase.Split(s)
 	dir := ""
 	for i, toke := range tokens {
 		if i != len(tokens)-1 {

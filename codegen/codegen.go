@@ -209,7 +209,7 @@ func AddMongoImports(data string) (string, error) {
 	return buf.String(), nil
 }
 
-func GetFuncRender(extractStruct *extract.IdlExtractStruct) *template.FuncRender {
+func GetFuncRender(extractStruct *extract.IDLExtractStruct) *template.FuncRender {
 	return &template.FuncRender{
 		Name: "New" + extractStruct.Name + "Repository",
 		Params: code.Params{
@@ -232,7 +232,7 @@ func GetFuncRender(extractStruct *extract.IdlExtractStruct) *template.FuncRender
 	}
 }
 
-func GetStructRender(extractStruct *extract.IdlExtractStruct) *template.StructRender {
+func GetStructRender(extractStruct *extract.IDLExtractStruct) *template.StructRender {
 	return &template.StructRender{
 		Name: extractStruct.Name + "RepositoryMongo",
 		StructFields: code.StructFields{

@@ -23,19 +23,22 @@ import (
 )
 
 type Arguments struct {
-	GoMod         string
-	PackagePrefix string
-	IdlPath       string
-	IdlType       string
-	OutDir        string
-	Name          string
-	ModelDir      string
-	DaoDir        string
-	Verbose       bool
-	Version       string
-	ThriftOptions []string // options to pass through to thriftgo for go flag
-	ProtocOptions []string // options to pass through to protoc
-	GenBase       bool
+	GoMod           string
+	PackagePrefix   string
+	IdlPath         string
+	IdlType         string
+	OutDir          string
+	Name            string
+	ModelDir        string
+	DaoDir          string
+	Verbose         bool
+	Version         string // cwgo version
+	ProtoSearchPath []string
+	ProtocOptions   []string // options to pass through to protoc
+	ThriftOptions   []string // options to pass through to thriftgo for go flag
+
+	GenBase   bool
+	UseGenDir bool
 }
 
 func (a *Arguments) Unpack(args []string) error {

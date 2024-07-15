@@ -14,6 +14,6 @@
  * limitations under the License.
  */
 
-package plugins
+package mongo_plugin
 
 const Version = "v0.1.0"

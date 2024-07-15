@@ -41,20 +41,22 @@ type PbUsedInfo struct {
 	ImportPaths []string
 }
 
-func NewPbArgs(gomod, pkgPrefix, idlPath, outDir, name, modelDir, daoDir, version string, verbose, genBase bool, tfopt []string) *args.Arguments {
+func NewPbArgs(gomod, pkgPrefix, idlPath, outDir, name, modelDir, daoDir, version string, verbose, genBase, useGenDir bool, protoOpts, protoSearchPath []string) *args.Arguments {
 	return &args.Arguments{
-		GoMod:         gomod,
-		PackagePrefix: pkgPrefix,
-		IdlPath:       idlPath,
-		IdlType:       "proto",
-		OutDir:        outDir,
-		Name:          name,
-		ModelDir:      modelDir,
-		DaoDir:        daoDir,
-		Verbose:       verbose,
-		Version:       version,
-		ThriftOptions: tfopt,
-		GenBase:       genBase,
+		GoMod:           gomod,
+		PackagePrefix:   pkgPrefix,
+		IdlPath:         idlPath,
+		IdlType:         "proto",
+		OutDir:          outDir,
+		Name:            name,
+		ModelDir:        modelDir,
+		DaoDir:          daoDir,
+		Verbose:         verbose,
+		Version:         version,
+		UseGenDir:       useGenDir,
+		ProtocOptions:   protoOpts,
+		ProtoSearchPath: protoSearchPath,
+		GenBase:         genBase,
 	}
 }
 
@@ -65,7 +67,7 @@ type pbGoFileInfo struct {
 	astFile       *ast.File
 }
 
-func (info *PbUsedInfo) ParsePbIdl() (rawStructs []*IdlExtractStruct, err error) {
+func (info *PbUsedInfo) ParsePbIdl() (rawStructs []*IDLExtractStruct, err error) {
 	info.astFiles, info.ImportPaths, err = getPbGoFiles(info.Args.ModelDir, info.Args.PackagePrefix)
 	if err != nil {
 		return nil, err
@@ -87,7 +89,10 @@ func (info *PbUsedInfo) ParsePbIdl() (rawStructs []*IdlExtractStruct, err error)
 								if !stp.Struct.IsValid() {
 									continue
 								}
-								rawStruct := newIdlExtractStruct(tp.Name.Name)
+								rawStruct := newIDLExtractStruct(tp.Name.Name)
+								pkgDir := getPackageDir(astFile.path, info.Args.ModelDir)
+								rawStruct.PkgName = pkgDir
+
 								if err = info.extractPbGoStruct(stp, rawStruct, astFile.astFile); err != nil {
 									return nil, err
 								}
@@ -122,7 +127,20 @@ func (info *PbUsedInfo) ParsePbIdl() (rawStructs []*IdlExtractStruct, err error)
 	return
 }
 
-func (info *PbUsedInfo) extractPbGoStruct(stNode *ast.StructType, rawStruct *IdlExtractStruct, astFile *ast.File) error {
+func getPackageDir(path string, modelDir string) string {
+	path = strings.TrimPrefix(path, modelDir)
+	if strings.HasPrefix(path, "/") {
+		path = path[1:]
+	}
+	parts := strings.Split(path, "/")
+	if len(parts) >= 2 {
+		parts = parts[:len(parts)-1]
+		return strings.Join(parts, "/")
+	}
+	return ""
+}
+
+func (info *PbUsedInfo) extractPbGoStruct(stNode *ast.StructType, rawStruct *IDLExtractStruct, astFile *ast.File) error {
 	for _, field := range stNode.Fields.List {
 		if field.Comment != nil {
 			if strings.Contains(field.Comment.Text(), "go.tag") &&
@@ -147,7 +165,7 @@ func (info *PbUsedInfo) extractPbGoStruct(stNode *ast.StructType, rawStruct *Idl
 				if tt, ok := field.Type.(*ast.StarExpr); ok {
 					// *Struct
 					if ttt, ok := tt.X.(*ast.Ident); ok {
-						rs := &IdlExtractStruct{
+						rs := &IDLExtractStruct{
 							Name:         ttt.Name,
 							StructFields: make([]*StructField, 0, 10),
 						}
@@ -192,7 +210,7 @@ func (info *PbUsedInfo) extractPbGoStruct(stNode *ast.StructType, rawStruct *Idl
 								return fmt.Errorf("can not find %s field in struct %s", fieldName, rawStruct.Name)
 							}
 
-							rs := &IdlExtractStruct{
+							rs := &IDLExtractStruct{
 								Name:         ttt.Sel.Name,
 								StructFields: make([]*StructField, 0, 10),
 							}
