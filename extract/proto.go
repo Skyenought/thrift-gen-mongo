@@ -27,10 +27,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hertz-contrib/thrift-gen-mongo/utils"
-
 	"github.com/hertz-contrib/thrift-gen-mongo/args"
 	"github.com/hertz-contrib/thrift-gen-mongo/consts"
+	"github.com/hertz-contrib/thrift-gen-mongo/utils"
 
 	"golang.org/x/tools/go/ast/astutil"
 )
