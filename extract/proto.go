@@ -126,7 +126,7 @@ func (info *PbUsedInfo) ParsePbIdl() (rawStructs []*IDLExtractStruct, err error)
 	return
 }
 
-func getPackageDir(path string, modelDir string) string {
+func getPackageDir(path, modelDir string) string {
 	path = strings.TrimPrefix(path, modelDir)
 	path = strings.TrimPrefix(path, consts.Slash)
 
