@@ -31,7 +31,7 @@ import (
 )
 
 func Test_handleRequest(t *testing.T) {
-	data, err := os.ReadFile("../plugins/testdata/request_thrift.out")
+	data, err := os.ReadFile("./testdata/request_thrift.out")
 	if err != nil {
 		t.Fatal(err)
 	}

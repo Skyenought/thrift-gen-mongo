@@ -129,9 +129,8 @@ func (info *PbUsedInfo) ParsePbIdl() (rawStructs []*IDLExtractStruct, err error)
 
 func getPackageDir(path string, modelDir string) string {
 	path = strings.TrimPrefix(path, modelDir)
-	if strings.HasPrefix(path, "/") {
-		path = path[1:]
-	}
+	path = strings.TrimPrefix(path, consts.Slash)
+
 	parts := strings.Split(path, "/")
 	if len(parts) >= 2 {
 		parts = parts[:len(parts)-1]
